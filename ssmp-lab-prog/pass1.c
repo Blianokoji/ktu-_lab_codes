@@ -20,8 +20,12 @@ void main()
   } else {
     locctr = 0;
   }
-  fscanf(fp1, "%s\t%s\t%s", label, opcode, operand);
+
   while (strcmp(opcode, "END") != 0) {
+    fscanf(fp1, "%s\t%s\t%s", label, opcode, operand);
+    if(strcmp(opcode,"END") == 0) {
+        break;
+    }
     char temp[s];
     int opc,flag1=0;
     while (!feof(fp2)) {
@@ -78,9 +82,8 @@ void main()
     } else if (strcmp(opcode, "END") != 0) {
       locctr += 3;
     }
-    fscanf(fp1, "%s\t%s\t%s", label, opcode, operand);
   }
-  fprintf(fp4, "%x\t\t%s\t\t%s\t\t%s\n", locctr, label, opcode, start);
+  fprintf(fp4, "%x\t\t%s\t\t%s\t\t%x\n", locctr, label, opcode, start);
   length = locctr - start;
   printf("The length of the code : %x\n", length);
 
