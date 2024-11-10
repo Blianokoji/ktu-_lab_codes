@@ -49,7 +49,7 @@ void main()
         }
       }
       if (flag == 1) {
-        printf("Duplicate symbol\n");
+        //printf("Duplicate symbol\n");
         exit(1);
       } else {
         fprintf(fp3, "%s\t%x\n", label, locctr);
