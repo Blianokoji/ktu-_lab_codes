@@ -1,0 +1,12 @@
+ADM     START   1000
+--      LDA     ALPHA
+--      ADD     BETA
+--      STA     GAMMA
+--      LDA     THETA
+--      ADD     GAMMA
+--      MUL     GAMMA
+ALPHA   RESW    3
+BETA    RESW    2
+GAMMA   RESB    1
+THETA   RESW    10
+--      END     1000

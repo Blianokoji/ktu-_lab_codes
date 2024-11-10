@@ -23,6 +23,20 @@ void main()
 
   while (strcmp(opcode, "END") != 0) {
     fscanf(fp1, "%s\t%s\t%s", label, opcode, operand);
+    char temp[s];
+    int opc,flag1=0;
+    while (!feof(fp2)) {
+        fscanf(fp2, "%s\t%x", temp, &opc);
+        if (strcmp(opcode, temp) == 0 ||strcmp(opcode, "END") == 0 || strcmp(opcode, "WORD") == 0 || strcmp(opcode, "RESW") == 0 || strcmp(opcode, "RESB") == 0 || strcmp(opcode, "BYTE") == 0 || strcmp(opcode, "RSUB") == 0) {
+          flag1 = 1;
+          break;
+        }
+      }
+      rewind(fp2);
+      if (flag1 == 0) {
+        printf("undefined operation\n");
+        exit(1);
+      }
     if (strcmp(label, "--") != 0) {
       int flag = 0, addr;
       char sym[10];
