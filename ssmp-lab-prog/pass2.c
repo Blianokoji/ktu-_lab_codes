@@ -1,165 +1,141 @@
-#include<stdio.h>
-#include<string.h>
-#include<stdlib.h>
+#include <stdio.h>
+#include <string.h>
+#include <stdlib.h>
+#define s 10
 
-char fill[20], op[5], sym[10];
+int symtabSearch(char *label);
+int optabSearch(char *opcode);
+void asciitoHex(char *operand,int a);
+char hex,opc[s],addr[s];  // Global variable to store opcode and symbol table search results
+int counter=0;  // Global variable to store hex value and counter
 
-
-int optabSearch(char a[100]){
-    FILE *optab;
-    optab = fopen("optab.txt","r");
-    char e[100], temp[100];
-    temp[0] = '\0';
-    fscanf(optab,"%s %s", e, op);
-    while( strcmp(temp,e) != 0 ){
-        strcpy(temp,e);
-        if(strcmp(e, a) == 0){
-            fclose(optab);
-            return 1;
-        }
-        fscanf(optab,"%s %s", e, op);
+int main() {
+    FILE *output, *imf, *len, *obj;
+    int length, size;
+    char  opcode[s], operand[s], label[s], start[6],locctr[s];
+    
+    // Open files
+    output = fopen("output.txt", "w");
+    imf = fopen("intermediate.txt", "r");
+    obj = fopen("obj.txt", "w");
+    len = fopen("length.txt", "r");
+    if (output == NULL || imf == NULL || obj == NULL || len == NULL) {
+        printf("Error opening files\n");
+        return 1;
     }
-    fclose(optab);
-    return 0;
-}
+    // Read the program length and size from length.txt
+    fscanf(len, "%x %x", &length, &size);
+    fclose(len);
+    // Read the first line from intermediate file
+    fscanf(imf, "%s %s %s", label, opcode, operand);
+    // If START directive is found, initialize `start` and output the header record
+    if (strcmp(opcode, "START") == 0) {
+        strcpy(start, operand);
+        fprintf(output, "\t\t\t%s\t\t\t%s\t\t%s\n", label, opcode, operand);  // Assembly listing first line
+        fprintf(obj, "H^%s^00%s^%06X", label, operand, length);  // Header record
+        fscanf(imf, "%s %s %s %s", locctr, label, opcode, operand);  // Read the next line
+    } else {
+        strcpy(start, "0000");
+    }
 
+    // Process each line until END directive
+    while (strcmp(opcode, "END") != 0) {
+        printf("%s %s %s %s\n", locctr, label, opcode, operand);  // Debugging output--------------------------
+        if (counter == 0 && strcmp(opcode, "RESW") != 0 && strcmp(opcode, "RESB") != 0) {
+            fprintf(obj, "\nT^00%s^%02x", locctr,size);  // Text record
+        }
+        if (strcmp(label, "--") != 0) {
+            if(symtabSearch(label)==0){
+                printf("Error: Symbol not found\n");
+                return 1;
+            }  // Look up in symbol table
+        }
+        if (strcmp(opcode, "BYTE") == 0) {
+            fprintf(output, "%s\t\t%s\t\t%s\t\t%s\t\t", locctr, label, opcode, operand);
+            fprintf(obj, "^");  // Object code for BYTE
+            for (int i = 2; i < strlen(operand) - 1; i++) {
+                asciitoHex(operand,i);
+                fprintf(obj, "%x", (int)hex);  // Object code for BYTE
+                fprintf(output, "%02x", (int)hex);
+                counter++;
+            }
+            fprintf(output, "\n");
 
-int symtabSearch(char a[100]){
-    FILE *symtab;
-    symtab  = fopen("symtab.txt","r");
-    char e[100], temp[100];
-    fscanf(symtab,"%s %s", e, sym);
-    while( strcmp(temp,e) != 0 ){
-        strcpy(temp,e);
+        } else if (strcmp(opcode, "WORD") == 0) {
+            fprintf(output, "%s\t\t%s\t\t%s\t\t%s\t\t%06x\n", locctr, label, opcode, operand,atoi(operand));
+            fprintf(obj, "^%06X", atoi(operand));  // Object code for WORD
+            counter+=3;  // Increment counter by 3 for each instruction
+
+        } else if (strcmp(opcode, "RESW") == 0 || strcmp(opcode, "RESB") == 0) {
+            fprintf(output, "%s\t\t%s\t\t%s\t\t%s\n", locctr, label, opcode, operand);
+            // No object code for reserved words/bytes
+        } else {
+            optabSearch(opcode);  // Look up in opcode table to generate object code
+            symtabSearch(operand);  // Look up in symbol table
+            fprintf(output, "%s\t\t%s\t\t\t%s\t\t\t%s\t\t%s%s\n", locctr, label, opcode, operand,opc,addr);
+            fprintf(obj, "^%s%s", opc,addr);  // Object code for other instructions
+            counter+=3;  // Increment counter by 3 for each instruction
+        }
+        fscanf(imf, "%s\t%s\t%s\t%s", locctr, label, opcode, operand);  // Read next line
         
-        if(strcmp(e, a) == 0){
-            fclose(symtab);
-            return 1;
+        if (counter >=size) {
+            counter = 0;  // Reset counter
         }
-        fscanf(symtab,"%s %s", e, sym);
     }
-    fclose(symtab);
+    fprintf(output, "%s\t\t%s\t\t\t%s\t\t\t%s\n", locctr, label, opcode, operand);  // Assembly listing last line
+    fprintf(obj, "\nE^00%s\n", start);  // End record
+    // Close files
+    fclose(output);
+    fclose(imf);
+    fclose(obj);
     return 0;
 }
-int opCount(){
-    FILE *imf = fopen("intermediate.txt","r");
-    char a[100], b[100], c[100], d[10];
-    int count = 0;
-    fscanf(imf,"%s %s %s %s", d, a, b, c);
-    while(strcmp(b,"LENGTH") != 0) {
-        int tempInt = optabSearch(b);
-        if( tempInt == 1 ){
-            count++;
+
+// Placeholder functions for symbol and operation table searches
+int symtabSearch(char *label) {
+    // Implementation here to search for the symbol and return address
+    FILE *f1;
+    int flag=0;
+    f1=fopen("symtab.txt","r");  //Input file
+    char sym[s];
+    do{
+        fscanf(f1,"%s %s",sym,addr); //Reading the line from the file
+        if (strcmp(sym, label) == 0) {
+            //printf("Symbol found: %s\n", sym);
+            flag=1;
+            break;
         }
-        fscanf(imf,"%s %s %s %s", d, a, b, c);
+    }while(!feof(f1)); //Infinite loop
+    rewind(f1);
+    fclose(f1);
+    if (flag==1) {
+        return 1;
     }
-    fclose(imf);
-    return count;
-}
-void filler(char a[100], int len, char chr) {
-    int i;
-    int length = strlen(a);
-    length = len-length;
-    for(i = 0; i < length; i++) {
-        fill[i] = chr;
-    }
-    fill[i] = '\0';
+    return 0;
 }
 
-void main() {
-    FILE *output, *imf;
-    int tempInt;
-    char a[100], b[100], c[100], d[100], temp[100], start[6];
-    
-    output = fopen("output.txt","w");
-    imf = fopen("intermediate.txt","r");
-    
-    fscanf(imf,"%x %s %s %s",&tempInt, a, b, c);
-    filler(a,6,'_');
-    fprintf(output,"H^%s%s^", a, fill);
-    filler(c, 6, '0');
-    fprintf(output,"%s%s^",fill,c);
-    strcpy(start, c);
-    fscanf(imf,"%x %s %s %s",&tempInt, a, b, c);
-    while(strcmp(b,"LENGTH") != 0) { 
-        fscanf(imf,"%s %s %s %s",temp, a, b, c);
-    }
-    filler(temp, 6, '0');
-    fprintf(output,"%s%s",fill, temp);
-    fclose(imf);
-    
-    imf = fopen("intermediate.txt","r");
-    fscanf(imf,"%x %s %s %s",&tempInt, a, b, c); 
-    filler(c,6,'0');
-    tempInt = opCount();
-    int divBy10 = tempInt/10; 
-    int divRem = (tempInt % 10)*3; 
-    fscanf(imf,"%s %s %s %s",d , a, b, c);
-    int i = 0;
-    int flag = 0; 
-    int countForWord = 0;
-    char strForWord[100];
-    strForWord[0] = '\0';
-    while(1) {
-        if(flag == 0) { 
-            
-            if(i%10 == 0) {
-                filler(d,6,'0');
-                if(divBy10 > 0) {
-                    fprintf(output,"\nT^%s%s^%x", fill, d, 30);
-                    divBy10--;
-                }else {
-                    if((divRem/16) == 0) { 
-                        fprintf(output,"\nT^%s%s^0%x", fill, d, divRem);
-                    } else {
-                        fprintf(output,"\nT^%s%s^%x", fill, d, divRem);
-                    }
-                }
-            }
-            if( optabSearch(b) == 1 ) {
-                symtabSearch(c);
-                if(strcmp(sym,"-") == 0) {
-                    fprintf(output,"^%s0000", op);
-                }else{
-                    fprintf(output,"^%s%s", op, sym);
-                }
-            }else {
-                fprintf(output,"^%s%s", op, sym);
-            }
-            if(strcmp(b,"RSUB") == 0){
-                flag = 1;
-                continue;
-            }
-        } else { 
-            if(strcmp(b,"WORD") == 0) {
-                if(countForWord == 0) {
-                    filler(d,6,'0');
-                    fprintf(output,"\nT^%s%s", fill, d);
-                }
-                filler(c,6,'0');
-                strcat(strForWord, "^");
-                strcat(strForWord, fill);
-                strcat(strForWord, c);
-                countForWord++;
-            }else {
-                if(countForWord > 0) {
-                    int countForWorda = countForWord*3;
-                    if((countForWorda/16) == 0) { 
-                        fprintf(output,"^0%x", countForWorda);
-                    } else {
-                        fprintf(output,"^%x", countForWorda);
-                    }
-                    fprintf(output,"%s", strForWord);
-                    strForWord[0] = '\0';
-                    countForWord = 0;
-                }
-            }
+int optabSearch(char *opcode) {
+    // Implementation here to search for opcode and return machine code
+    FILE *f2;
+    int flag=0;
+    f2=fopen("optab.txt","r");  //Input file
+    char opd[s];
+    do{
+        fscanf(f2,"%s %s",opd,opc); //Reading the line from the file
+        if (strcmp(opd, opcode) == 0) {
+            flag=1;
+            break;
         }
-        if(strcmp(b,"LENGTH") == 0) break;
-        fscanf(imf,"%s %s %s %s",d, a, b, c);  
-        i++;  
+    }while(!feof(f2)); //Infinite loop
+    rewind(f2);
+    fclose(f2);
+    if (flag==1) {
+        return 1;
     }
-    
-    filler(start ,6,'0');
-    fprintf(output, "\nE^%s%s", fill, start);
+    return 0;
+}
+
+void asciitoHex(char *operand,int a) {
+    // Implementation here to convert ASCII to Hex
+    strcpy(&hex, &operand[a]);
 }
